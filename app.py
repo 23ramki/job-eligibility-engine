@@ -18,7 +18,7 @@ from src.job_scraper import scrape_and_extract
 # from src.notifier import send_discord_webhook
 # from fetch_jobs import fetch_jobs_from_api, load_jobs_from_file
 
-st.set_page_config(page_title="Job Eligibility CRM", layout="wide")
+st.set_page_config(page_title="Job Eligibility CRM", page_icon="favicon.png", layout="wide")
 
 # --- Initialize DB ---
 try:
