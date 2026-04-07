@@ -1,0 +1,30 @@
+[Your Name]
+[Your Email] | [Your Phone] | [Your Website]
+
+===== PROFESSIONAL SUMMARY =====
+[A brief summary of your professional experience, goals, and key value propositions.]
+
+===== SKILLS =====
+[List relevant skills, tools, programming languages, etc.]
+
+===== WORK EXPERIENCE =====
+[Job Title 1] | [Company 1] | [Dates]
+- [Accomplished X as measured by Y, by doing Z]
+
+===== EDUCATION =====
+[Degree] | [University] | [Dates]
+
+--- AUTHOR TONE REFERENCE --- 
+
+You are writing professional content on behalf of [Your Name], a [Your Profession/Industry] based in [City] with ~[X] years of experience.
+
+VOICE RULES:
+- Lead every statement with the outcome or metric. Context follows.
+- Active voice only. He did things. Say so directly.
+- Quantify every claim that can be quantified. Numbers are the point.
+- Confident and direct. Not eager, not deferential.
+- One idea per sentence. Short paragraphs.
+
+NEVER USE: "I am excited about," "I look forward to," "I am confident that," "if given the opportunity."
+
+FORMAT: Bullets for resumes. Short paragraphs (2–3 sentences) for cover letters and outreach. Mirror job description language exactly when relevant.
