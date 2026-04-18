@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 from pathlib import Path
 
@@ -62,6 +63,11 @@ def _migrate_if_needed():
         ("employment_type", "TEXT"),
         ("date_posted", "TEXT"),
         ("notes", "TEXT"),
+        ("fit_score", "INTEGER"),
+        ("fit_label", "TEXT"),
+        ("fit_reason", "TEXT"),
+        ("fit_analysis_json", "TEXT"),
+        ("applied_at", "TEXT"),
     ]
     with _get_connection() as conn:
         existing = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
@@ -70,9 +76,14 @@ def _migrate_if_needed():
                 conn.execute(f"ALTER TABLE jobs ADD COLUMN {col_name} {col_type}")
 
 
-def get_all_jobs_by_status():
-    """Fetch all jobs grouped by status for the Kanban board."""
-    query = "SELECT * FROM jobs ORDER BY created_at DESC"
+def get_all_jobs_by_status(sort_by="newest"):
+    """Fetch all jobs grouped by status for the Kanban board.
+    sort_by: 'newest' (created_at DESC, default) or 'fit_score'."""
+    if sort_by == "fit_score":
+        order = "fit_score DESC NULLS LAST, created_at DESC"
+    else:
+        order = "created_at DESC, fit_score DESC NULLS LAST"
+    query = f"SELECT * FROM jobs ORDER BY {order}"
     result = {"New": [], "Applied": [], "Interviewing": [], "Rejected": []}
 
     with _get_connection() as conn:
@@ -94,9 +105,15 @@ def get_job_by_id(job_id):
 
 
 def update_job_status(job_id, new_status):
-    """Update the kanban status of a job."""
+    """Update the kanban status of a job. Stamps applied_at when moving to Applied."""
     with _get_connection() as conn:
-        conn.execute("UPDATE jobs SET status = ? WHERE job_id = ?", (new_status, job_id))
+        if new_status == "Applied":
+            conn.execute(
+                "UPDATE jobs SET status = ?, applied_at = CURRENT_TIMESTAMP WHERE job_id = ?",
+                (new_status, job_id),
+            )
+        else:
+            conn.execute("UPDATE jobs SET status = ? WHERE job_id = ?", (new_status, job_id))
 
 
 def update_job_resume_summary(job_id, summary):
@@ -171,7 +188,7 @@ def save_new_jobs(new_jobs_list):
     return len(rows)
 
 
-def search_jobs(query_text, status_filter=None, visa_filter=None):
+def search_jobs(query_text, status_filter=None, visa_filter=None, sort_by="newest"):
     """Search jobs by keyword across title, company, description, location."""
     conditions = []
     params = []
@@ -192,7 +209,11 @@ def search_jobs(query_text, status_filter=None, visa_filter=None):
         params.append(visa_filter)
 
     where = " AND ".join(conditions) if conditions else "1=1"
-    query = f"SELECT * FROM jobs WHERE {where} ORDER BY created_at DESC"
+    if sort_by == "fit_score":
+        order = "fit_score DESC NULLS LAST, created_at DESC"
+    else:
+        order = "created_at DESC, fit_score DESC NULLS LAST"
+    query = f"SELECT * FROM jobs WHERE {where} ORDER BY {order}"
 
     with _get_connection() as conn:
         rows = conn.execute(query, params).fetchall()
@@ -207,10 +228,73 @@ def get_job_stats():
         for row in conn.execute("SELECT status, COUNT(*) as cnt FROM jobs GROUP BY status").fetchall():
             by_status[row["status"]] = row["cnt"]
         sponsored = conn.execute("SELECT COUNT(*) FROM jobs WHERE visa_status = 'Sponsored'").fetchone()[0]
-        return {"total": total, "by_status": by_status, "sponsored": sponsored}
+        added_today = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE DATE(created_at) = DATE('now', 'localtime')"
+        ).fetchone()[0]
+        return {"total": total, "by_status": by_status, "sponsored": sponsored, "added_today": added_today}
+
+
+def get_all_jobs(sort_by="newest"):
+    """Fetch all jobs as a flat list (not grouped by status).
+    sort_by: 'newest' (default) or 'fit_score'."""
+    if sort_by == "fit_score":
+        order = "fit_score DESC NULLS LAST, created_at DESC"
+    else:
+        order = "created_at DESC, fit_score DESC NULLS LAST"
+    with _get_connection() as conn:
+        rows = conn.execute(f"SELECT * FROM jobs ORDER BY {order}").fetchall()
+        return [dict(row) for row in rows]
 
 
 def delete_job(job_id):
     """Remove a job from the database."""
     with _get_connection() as conn:
         conn.execute("DELETE FROM jobs WHERE job_id = ?", (job_id,))
+
+
+def update_job_fit_score(job_id, score, label, reason=""):
+    """Save the quick fit score for a job."""
+    with _get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET fit_score = ?, fit_label = ?, fit_reason = ? WHERE job_id = ?",
+            (score, label, reason, job_id),
+        )
+
+
+def save_job_fit_analysis(job_id, analysis_data):
+    """Persist the fit analysis for a job (dict → JSON, str → stored as-is, None → clears)."""
+    if analysis_data is None:
+        json_str = None
+    elif isinstance(analysis_data, dict):
+        json_str = json.dumps(analysis_data)
+    else:
+        json_str = str(analysis_data)
+    with _get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET fit_analysis_json = ? WHERE job_id = ?",
+            (json_str, job_id),
+        )
+
+
+def get_job_fit_analysis(job_id):
+    """Load saved fit analysis. Returns dict (if JSON), str (fallback), or None."""
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT fit_analysis_json FROM jobs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+    if not row or row["fit_analysis_json"] is None:
+        return None
+    try:
+        return json.loads(row["fit_analysis_json"])
+    except Exception:
+        return row["fit_analysis_json"]
+
+
+def get_unscored_jobs():
+    """Return all jobs that have not yet been fit-scored, ordered by most recent first."""
+    with _get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE fit_score IS NULL ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]

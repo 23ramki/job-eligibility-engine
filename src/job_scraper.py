@@ -1,11 +1,7 @@
-import os
 import re
 import requests
 from bs4 import BeautifulSoup
-from google import genai
-from dotenv import load_dotenv
-
-load_dotenv()
+from src.ollama_client import generate
 
 HEADERS = {
     "User-Agent": (
@@ -48,7 +44,7 @@ def scrape_job_url(url):
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     text = "\n".join(lines)
 
-    # Truncate to avoid blowing up the Gemini context
+    # Truncate to avoid blowing up the local model's context window
     if len(text) > 8000:
         text = text[:8000]
 
@@ -60,19 +56,13 @@ def scrape_job_url(url):
 
 def extract_job_details(url, page_text):
     """
-    Use Gemini to extract structured job details from raw page text.
+    Use the local Ollama model to extract structured job details from raw page text.
     Returns (job_dict, error_message).
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return None, "GEMINI_API_KEY is not set in your .env file."
-
-    client = genai.Client(api_key=api_key)
-
     prompt = f"""You are a job posting data extractor. Given the raw text scraped from a job listing page,
 extract the following fields. If a field is not found, use "Not specified".
 
-Return EXACTLY this format (one field per line, no extra text):
+Return EXACTLY this format (one field per line, no extra text, no markdown code fences):
 JOB_TITLE: <the job title>
 COMPANY: <the company name>
 LOCATION: <city, state or remote>
@@ -85,14 +75,10 @@ URL: {url}
 PAGE TEXT:
 {page_text}"""
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        return _parse_extraction(response.text, url), None
-    except Exception as e:
-        return None, f"Gemini extraction error: {e}"
+    text, err = generate(prompt, temperature=0.1)
+    if err:
+        return None, err
+    return _parse_extraction(text, url), None
 
 
 def _parse_extraction(text, url):
@@ -134,7 +120,7 @@ def _parse_extraction(text, url):
 
 def scrape_and_extract(url):
     """
-    Full pipeline: scrape URL -> extract details with Gemini.
+    Full pipeline: scrape URL -> extract details with Ollama.
     Returns (job_dict, error_message).
     """
     page_text, err = scrape_job_url(url)

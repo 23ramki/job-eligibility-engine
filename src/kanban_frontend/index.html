@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+/* ── Design tokens — dark (default) ── */
+:root {
+  --bg:          #0f172a;
+  --col-bg:      rgba(30,41,59,0.80);
+  --col-border:  rgba(96,165,250,0.18);
+  --col-hover:   rgba(96,165,250,0.32);
+  --card-bg:     #1e293b;
+  --card-border: #334155;
+  --card-hover:  rgba(96,165,250,0.22);
+  --text:        #f1f5f9;
+  --muted:       #94a3b8;
+  --primary:     #60a5fa;
+  --primary-dim: rgba(96,165,250,0.10);
+  --primary-text:#0f172a;
+  --line:        #334155;
+  --shadow:      0 4px 24px rgba(0,0,0,0.45);
+  --ease:        cubic-bezier(0.65,0.05,0,1);
+  --radius:      12px;
+  --radius-sm:   7px;
+  --font-head:   'Space Grotesk', system-ui, sans-serif;
+  --font-body:   'Inter', system-ui, sans-serif;
+}
+
+/* ── Light theme overrides ── */
+[data-theme="light"] {
+  --bg:          #f8fafc;
+  --col-bg:      rgba(255,255,255,0.85);
+  --col-border:  rgba(37,99,235,0.18);
+  --col-hover:   rgba(37,99,235,0.28);
+  --card-bg:     #ffffff;
+  --card-border: #e2e8f0;
+  --card-hover:  rgba(37,99,235,0.12);
+  --text:        #0f172a;
+  --muted:       #64748b;
+  --primary:     #2563eb;
+  --primary-dim: rgba(37,99,235,0.08);
+  --primary-text:#ffffff;
+  --line:        #e2e8f0;
+  --shadow:      0 2px 12px rgba(0,0,0,0.07);
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.35s var(--ease), color 0.35s var(--ease);
+}
+
+/* ── Board layout ── */
+#kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px 10px 16px;
+  min-height: 300px;
+  align-items: start;
+}
+
+/* ── Column ── */
+.kanban-col {
+  background: var(--col-bg);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(12px) saturate(1.4);
+  overflow: hidden;
+  transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  display: flex;
+  flex-direction: column;
+}
+.kanban-col:hover {
+  border-color: var(--col-hover);
+  box-shadow: 0 4px 28px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ── Column header ── */
+.col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.col-title {
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.col-count {
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--primary-dim);
+  color: var(--primary);
+  border: 1px solid var(--col-border);
+  border-radius: 100px;
+  padding: 1px 8px;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* ── Cards container ── */
+.cards-container {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 60px;
+  flex: 1;
+  transition: background 0.2s ease;
+}
+.cards-container.sortable-over {
+  background: var(--primary-dim);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center;
+  padding: 20px 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ── Card ── */
+.kanban-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: grab;
+  transition:
+    transform 0.25s var(--ease),
+    box-shadow 0.25s var(--ease),
+    border-color 0.25s var(--ease);
+  user-select: none;
+  position: relative;
+}
+.kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--card-hover);
+}
+.kanban-card:active { cursor: grabbing; }
+
+/* Score bar — thin top stripe */
+.card-score-bar {
+  height: 3px;
+  width: 100%;
+}
+.card-score-bar.strong { background: #22c55e; }
+.card-score-bar.good   { background: #f5e642; }
+.card-score-bar.partial{ background: #f59e42; }
+.card-score-bar.weak   { background: #f55442; }
+.card-score-bar.unscored{ background: #2a2f2a; }
+
+[data-theme="light"] .card-score-bar.strong { background: #16a34a; }
+[data-theme="light"] .card-score-bar.good   { background: #8a7000; }
+[data-theme="light"] .card-score-bar.partial{ background: #9a5500; }
+[data-theme="light"] .card-score-bar.weak   { background: #9a2200; }
+[data-theme="light"] .card-score-bar.unscored{ background: #d0ccc4; }
+
+/* Card body */
+.card-body {
+  padding: 9px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Score badge */
+.score-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-family: var(--font-head);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 100px;
+  border: 1px solid transparent;
+  align-self: flex-start;
+  margin-bottom: 2px;
+}
+.score-badge.strong {
+  background: rgba(96,165,250,0.12);
+  color: #60a5fa;
+  border-color: rgba(96,165,250,0.3);
+}
+.score-badge.good {
+  background: rgba(245,230,66,0.12);
+  color: #d4c200;
+  border-color: rgba(245,230,66,0.3);
+}
+.score-badge.partial {
+  background: rgba(245,158,66,0.12);
+  color: #d48000;
+  border-color: rgba(245,158,66,0.3);
+}
+.score-badge.weak {
+  background: rgba(245,84,66,0.12);
+  color: #d44040;
+  border-color: rgba(245,84,66,0.3);
+}
+.score-badge.unscored {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+[data-theme="light"] .score-badge.strong {
+  background: rgba(37,99,235,0.10);
+  color: #2563eb;
+  border-color: rgba(37,99,235,0.25);
+}
+[data-theme="light"] .score-badge.good {
+  background: rgba(138,112,0,0.10);
+  color: #6a5500;
+  border-color: rgba(138,112,0,0.25);
+}
+[data-theme="light"] .score-badge.partial {
+  background: rgba(154,85,0,0.10);
+  color: #7a4400;
+  border-color: rgba(154,85,0,0.25);
+}
+[data-theme="light"] .score-badge.weak {
+  background: rgba(154,34,0,0.10);
+  color: #7a1a00;
+  border-color: rgba(154,34,0,0.25);
+}
+
+/* Card content */
+.card-title {
+  font-family: var(--font-head);
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.card-company {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.card-location {
+  font-size: 0.68rem;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+/* Tags */
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+}
+.tag {
+  font-size: 0.62rem;
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: var(--primary-dim);
+  color: var(--primary);
+  border: 1px solid var(--col-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* Details button */
+.details-btn {
+  margin-top: 6px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: all 0.2s var(--ease);
+}
+.details-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateX(2px);
+}
+
+/* ── Drag states ── */
+.card-ghost {
+  opacity: 0.35;
+  border: 2px dashed var(--primary) !important;
+  background: var(--primary-dim) !important;
+  transform: none !important;
+}
+.card-chosen {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5) !important;
+  transform: rotate(1.5deg) scale(1.03) !important;
+  border-color: var(--primary) !important;
+  z-index: 9999;
+}
+.card-dragging {
+  opacity: 0.9;
+}
+
+/* ── Fit reason tooltip strip ── */
+.fit-reason {
+  font-size: 0.63rem;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.3;
+  margin-top: 2px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Drop zone highlight ── */
+.kanban-col.drag-over {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 1px var(--primary), 0 8px 32px rgba(0,0,0,0.3) !important;
+}
+</style>
+</head>
+<body>
+<div id="kanban-board"></div>
+
+<script>
+/* ───────────────────────────────────────────
+   Streamlit Component Protocol (low-level)
+─────────────────────────────────────────── */
+const StreamlitMsg = {
+  send(type, data) {
+    window.parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+  },
+  ready()          { this.send("streamlit:componentReady", { apiVersion: 1 }); },
+  height(h)        { this.send("streamlit:setFrameHeight", { height: h }); },
+  value(v)         { this.send("streamlit:setComponentValue", { value: v, dataType: "json" }); }
+};
+
+/* ───────────────────────────────────────────
+   Helpers
+─────────────────────────────────────────── */
+function esc(str) {
+  const d = document.createElement("div");
+  d.appendChild(document.createTextNode(str || ""));
+  return d.innerHTML;
+}
+
+function fitClass(score) {
+  if (score === null || score === undefined) return "unscored";
+  if (score >= 80) return "strong";
+  if (score >= 60) return "good";
+  if (score >= 40) return "partial";
+  return "weak";
+}
+
+function fitIcon(score) {
+  if (score === null || score === undefined) return "⬜";
+  if (score >= 80) return "🟢";
+  if (score >= 60) return "🟡";
+  if (score >= 40) return "🟠";
+  return "🔴";
+}
+
+/* ───────────────────────────────────────────
+   Card factory
+─────────────────────────────────────────── */
+function makeCard(job) {
+  const div = document.createElement("div");
+  div.className = "kanban-card";
+  div.dataset.jobId = job.job_id;
+
+  const cls   = fitClass(job.fit_score);
+  const icon  = fitIcon(job.fit_score);
+  const score = job.fit_score !== null && job.fit_score !== undefined
+    ? `${icon} ${job.fit_score}/100`
+    : `${icon} Unscored`;
+
+  const tagsHtml = [
+    job.visa_status === "Sponsored" ? '<span class="tag">🟢 Sponsored</span>' : "",
+    job.remote ? '<span class="tag">🌐 Remote</span>' : "",
+    job.hybrid ? '<span class="tag">🔀 Hybrid</span>' : "",
+  ].filter(Boolean).join("");
+
+  const reasonHtml = job.fit_reason
+    ? `<div class="fit-reason">${esc(job.fit_reason)}</div>`
+    : "";
+
+  const locHtml = job.location
+    ? `<div class="card-location">📍 ${esc(job.location)}</div>`
+    : "";
+
+  div.innerHTML = `
+    <div class="card-score-bar ${cls}"></div>
+    <div class="card-body">
+      <span class="score-badge ${cls}">${score}</span>
+      <div class="card-title">${esc(job.job_title || "Untitled")}</div>
+      <div class="card-company">${esc(job.company || "Unknown")}</div>
+      ${locHtml}
+      ${reasonHtml}
+      ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ""}
+      <button class="details-btn" data-job-id="${esc(job.job_id)}">Details →</button>
+    </div>
+  `;
+
+  div.querySelector(".details-btn").addEventListener("click", function(e) {
+    e.stopPropagation();
+    StreamlitMsg.value({ action: "details", job_id: this.dataset.jobId, ts: Date.now() });
+  });
+
+  return div;
+}
+
+/* ───────────────────────────────────────────
+   Main render
+─────────────────────────────────────────── */
+function renderKanban(args) {
+  const { jobs_by_status, statuses, status_emojis, theme } = args;
+
+  document.body.setAttribute("data-theme", theme || "dark");
+
+  const board = document.getElementById("kanban-board");
+  board.innerHTML = "";
+
+  statuses.forEach(function(status) {
+    const jobs = jobs_by_status[status] || [];
+
+    /* Column wrapper */
+    const col = document.createElement("div");
+    col.className = "kanban-col";
+    col.dataset.status = status;
+
+    /* Header */
+    const hdr = document.createElement("div");
+    hdr.className = "col-header";
+    hdr.innerHTML = `
+      <span class="col-title">${esc((status_emojis || {})[status] || "")} ${esc(status)}</span>
+      <span class="col-count">${jobs.length}</span>
+    `;
+    col.appendChild(hdr);
+
+    /* Cards list */
+    const list = document.createElement("div");
+    list.className = "cards-container";
+    list.dataset.status = status;
+
+    if (jobs.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "No jobs here";
+      list.appendChild(empty);
+    } else {
+      jobs.forEach(function(job) {
+        list.appendChild(makeCard(job));
+      });
+    }
+
+    col.appendChild(list);
+    board.appendChild(col);
+
+    /* SortableJS on this column */
+    Sortable.create(list, {
+      group: "kanban",
+      animation: 220,
+      easing: "cubic-bezier(0.65,0.05,0,1)",
+      ghostClass: "card-ghost",
+      chosenClass: "card-chosen",
+      dragClass: "card-dragging",
+      filter: ".empty-state",
+      emptyInsertThreshold: 30,
+      onStart: function(evt) {
+        /* highlight all drop zones */
+        document.querySelectorAll(".kanban-col").forEach(function(c) {
+          if (c !== evt.from.parentElement) c.classList.add("drag-over");
+        });
+      },
+      onEnd: function(evt) {
+        document.querySelectorAll(".kanban-col").forEach(function(c) {
+          c.classList.remove("drag-over");
+        });
+
+        /* Update count badges */
+        updateCounts();
+
+        const fromStatus = evt.from.dataset.status;
+        const toStatus   = evt.to.dataset.status;
+
+        if (fromStatus !== toStatus) {
+          var _jobId = evt.item.dataset.jobId;
+          var _from  = fromStatus;
+          var _to    = toStatus;
+          setTimeout(function() {
+            StreamlitMsg.value({ action: "move", job_id: _jobId, from_status: _from, to_status: _to, ts: Date.now() });
+          }, 50);
+        }
+      }
+    });
+  });
+
+  /* Auto-size iframe */
+  requestAnimationFrame(function() {
+    const h = document.documentElement.scrollHeight + 8;
+    StreamlitMsg.height(Math.max(h, 320));
+  });
+}
+
+function updateCounts() {
+  document.querySelectorAll(".kanban-col").forEach(function(col) {
+    const count = col.querySelectorAll(".kanban-card").length;
+    const badge = col.querySelector(".col-count");
+    if (badge) badge.textContent = count;
+
+    /* Remove/add empty state */
+    const list = col.querySelector(".cards-container");
+    if (!list) return;
+    let empty = list.querySelector(".empty-state");
+    if (count === 0 && !empty) {
+      empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "No jobs here";
+      list.appendChild(empty);
+    } else if (count > 0 && empty) {
+      empty.remove();
+    }
+  });
+}
+
+/* ───────────────────────────────────────────
+   Streamlit lifecycle
+─────────────────────────────────────────── */
+window.addEventListener("message", function(event) {
+  const msg = event.data;
+  if (!msg || msg.type !== "streamlit:render") return;
+  renderKanban(msg.args || {});
+});
+
+window.addEventListener("load", function() {
+  StreamlitMsg.ready();
+  StreamlitMsg.height(320);
+});
+</script>
+</body>
+</html>

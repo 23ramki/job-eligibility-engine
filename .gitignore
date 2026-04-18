@@ -20,6 +20,15 @@ output/
 *.pdf
 generated_resumes/
 
+# Data files (contain personal info)
+data/
+raw_jobs.json
+
+# Claude / agent configs
+.claude/
+.claude-flow/
+.mcp.json
+
 # OS
 .DS_Store
 Thumbs.db
