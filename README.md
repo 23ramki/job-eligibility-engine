@@ -106,7 +106,7 @@ You only need one of those two. Save the file.
 
 Create a file at `data/master_resume.txt` (the `data/` folder already exists in the project).
 
-Paste your **complete career history** into this file — every job, every bullet point, every skill, every certification. Don't hold back. The more detail you give it, the better the tailored resumes will be. The AI only uses facts from this file, so it will never fabricate experience.
+Paste your **complete career history** into this file — every job, every bullet point, every skill, every certification. Don't hold back. The more detail you give it, the better the tailored resumes will be. **The AI only uses facts from this file, so it will NEVER fabricate experience.**  
 
 ---
 
